@@ -1,8 +1,33 @@
-use std::{collections::HashMap, error::Error};
-
 use log::info;
+use serde::Serialize;
+use std::{collections::HashMap, error::Error, fs};
 
+use super::task_manager::{TaskManager, TaskStatus};
 use crate::common::TaskResult;
+
+#[derive(Serialize)]
+struct ReportGraphDetails {
+    results_collected: usize,
+    best_fitness: f64,
+    avg_processing_time_ms: f64,
+    total_processing_time_ms: u64,
+    results: Vec<TaskResult>,
+}
+
+#[derive(Serialize)]
+struct ReportStatusSummary {
+    total: usize,
+    completed: usize,
+    failed: usize,
+    pending: usize,
+    assigned: usize,
+}
+
+#[derive(Serialize)]
+struct JsonReport {
+    task_summary: ReportStatusSummary,
+    graphs: HashMap<String, ReportGraphDetails>,
+}
 
 pub struct ResultAggregator {
     results_by_graph: HashMap<String, Vec<TaskResult>>,
@@ -43,6 +68,74 @@ impl ResultAggregator {
     pub const fn get_all_results(&self) -> &HashMap<String, Vec<TaskResult>> {
         &self.results_by_graph
     }
+
+    pub fn generate_and_save_report(
+        &self,
+        task_manager: &TaskManager,
+        file_path: &str,
+    ) -> Result<(), Box<dyn Error>> {
+        info!("Gerando relatório final para {}", file_path);
+
+        let task_summary = ReportStatusSummary {
+            total: task_manager.get_total_tasks(),
+            completed: task_manager.get_completed_tasks_count(),
+            failed: task_manager
+                .get_tasks_status()
+                .values()
+                .filter(|&&s| s == TaskStatus::Failed)
+                .count(),
+            pending: task_manager
+                .get_tasks_status()
+                .values()
+                .filter(|&&s| s == TaskStatus::Pending)
+                .count(),
+            assigned: task_manager
+                .get_tasks_status()
+                .values()
+                .filter(|&&s| s == TaskStatus::Assigned)
+                .count(),
+        };
+
+        let graphs: HashMap<String, ReportGraphDetails> = self
+            .get_all_results()
+            .iter()
+            .map(|(graph_id, results)| {
+                let total_time_ms: u64 = results.iter().map(|r| r.processing_time_ms).sum();
+                let avg_time_ms = if results.is_empty() {
+                    0.0
+                } else {
+                    total_time_ms as f64 / results.len() as f64
+                };
+                let best_fitness = results
+                    .iter()
+                    .map(|r| r.fitness)
+                    .fold(f64::NEG_INFINITY, f64::max);
+
+                (
+                    graph_id.clone(),
+                    ReportGraphDetails {
+                        results_collected: results.len(),
+                        best_fitness,
+                        avg_processing_time_ms: avg_time_ms,
+                        total_processing_time_ms: total_time_ms,
+                        results: results.clone(),
+                    },
+                )
+            })
+            .collect();
+
+        let report = JsonReport {
+            task_summary,
+            graphs,
+        };
+
+        let json_data = serde_json::to_string_pretty(&report)?;
+        fs::write(file_path, json_data)?;
+
+        info!("Relatório salvo com sucesso em '{}'", file_path);
+
+        Ok(())
+    }
 }
 
 impl Default for ResultAggregator {
@@ -50,3 +143,4 @@ impl Default for ResultAggregator {
         Self::new()
     }
 }
+
