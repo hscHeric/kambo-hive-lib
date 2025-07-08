@@ -48,7 +48,6 @@ async fn handle_host_connection<T: GARunner>(
     loop {
         line.clear();
 
-        // Enviar uma requisição para uma tarefa
         let request = Request::RequestTask { worker_id };
         let encoded_request = serde_json::to_vec(&request)?;
         reader.write_all(&encoded_request).await?;
@@ -56,14 +55,12 @@ async fn handle_host_connection<T: GARunner>(
         reader.flush().await?;
         debug!("Trabalhador {worker_id} solicitou uma tarefa.");
 
-        // Ler a resposta do host até o delimitador de nova linha
         let bytes_read = reader.read_line(&mut line).await?;
 
         if bytes_read == 0 {
             return Err("Host desconectado.".into());
         }
 
-        // Desserializa a resposta JSON
         let response: Response = serde_json::from_str(&line)?;
         debug!("Trabalhador {worker_id} recebeu a resposta: {response:?}");
 

@@ -89,7 +89,6 @@ async fn handle_client(
             }
         };
 
-        // serializa a Response para JSON e envia, adicionando um newline como delimitador
         let encoded: Vec<u8> = serde_json::to_vec(&response)?;
         reader.write_all(&encoded).await?;
         reader.write_all(b"\n").await?; // Adiciona delimitador de newline

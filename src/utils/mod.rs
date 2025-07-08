@@ -67,7 +67,6 @@ pub async fn listen_for_workers(tcp_bind_addr: String) {
             if &buf[..amt] == DISCOVERY_MESSAGE {
                 info!("Requisição de descoberta recebida de {worker_addr}");
 
-                // Descobre qual IP local usar para responder ao worker
                 if let Some(local_ip) = get_local_ip_for_target(worker_addr) {
                     let response_addr = format!("{local_ip}:{tcp_port}");
                     info!("Respondendo para {worker_addr} com o endereço: {response_addr}");

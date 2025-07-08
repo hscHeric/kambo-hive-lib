@@ -65,7 +65,6 @@ pub fn start(aggregator: Arc<Mutex<ResultAggregator>>, file_path: String, interv
                 })
                 .collect();
 
-            // serializa e salva no arquivo
             match serde_json::to_string_pretty(&formatted_results) {
                 Ok(json_data) => {
                     if let Err(e) = fs::write(&file_path, json_data) {

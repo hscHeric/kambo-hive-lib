@@ -17,7 +17,6 @@ pub enum TaskStatus {
     Failed,
 }
 
-// NOVO: Enum para definir a estratégia de distribuição
 #[derive(Debug, Clone, Copy)]
 pub enum DistributionStrategy {
     Fifo, // First-In, First-Out
@@ -29,11 +28,10 @@ pub struct TaskManager {
     pending_tasks: VecDeque<Task>,
     assigned_tasks: HashMap<Uuid, (Task, Uuid)>, // TaskId -> (Task, WorkerId)
     all_tasks_status: HashMap<Uuid, TaskStatus>,
-    distribution_strategy: DistributionStrategy, // NOVO: Campo para a estratégia
+    distribution_strategy: DistributionStrategy,
 }
 
 impl TaskManager {
-    // ATUALIZADO: `new` agora aceita uma estratégia de distribuição
     pub fn new(distribution_strategy: DistributionStrategy) -> Self {
         Self {
             pending_tasks: VecDeque::new(),
@@ -53,7 +51,6 @@ impl TaskManager {
         info!("Tasks pendentes: {}", self.pending_tasks.len());
     }
 
-    // ATUALIZADO: `get_next_task` agora usa a estratégia de distribuição
     pub fn get_next_task(&mut self, worker_id: Uuid) -> Option<Task> {
         let task = match self.distribution_strategy {
             DistributionStrategy::Fifo => self.pending_tasks.pop_front(),
@@ -120,4 +117,3 @@ impl TaskManager {
         &self.all_tasks_status
     }
 }
-

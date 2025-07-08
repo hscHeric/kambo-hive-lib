@@ -1,6 +1,7 @@
 use log::info;
 use serde::Serialize;
 use std::{collections::HashMap, error::Error, fs};
+use uuid::Uuid;
 
 use super::task_manager::{TaskManager, TaskStatus};
 use crate::common::TaskResult;
@@ -23,10 +24,19 @@ struct ReportStatusSummary {
     assigned: usize,
 }
 
+#[derive(Serialize, Clone)]
+struct WorkerReport {
+    worker_id: Uuid,
+    tasks_completed: u32,
+    total_processing_time_ms: u64,
+    avg_processing_time_ms: f64,
+}
+
 #[derive(Serialize)]
 struct JsonReport {
     task_summary: ReportStatusSummary,
     graphs: HashMap<String, ReportGraphDetails>,
+    workers: Vec<WorkerReport>, // Novo campo para estatísticas dos workers
 }
 
 pub struct ResultAggregator {
@@ -124,9 +134,36 @@ impl ResultAggregator {
             })
             .collect();
 
+        let mut worker_stats: HashMap<Uuid, (u32, u64)> = HashMap::new();
+        for results in self.get_all_results().values() {
+            for result in results {
+                let stats = worker_stats.entry(result.worker_id).or_insert((0, 0));
+                stats.0 += 1;
+                stats.1 += result.processing_time_ms;
+            }
+        }
+
+        let workers: Vec<WorkerReport> = worker_stats
+            .into_iter()
+            .map(|(worker_id, (tasks_completed, total_processing_time_ms))| {
+                let avg_processing_time_ms = if tasks_completed > 0 {
+                    total_processing_time_ms as f64 / tasks_completed as f64
+                } else {
+                    0.0
+                };
+                WorkerReport {
+                    worker_id,
+                    tasks_completed,
+                    total_processing_time_ms,
+                    avg_processing_time_ms,
+                }
+            })
+            .collect();
+
         let report = JsonReport {
             task_summary,
             graphs,
+            workers,
         };
 
         let json_data = serde_json::to_string_pretty(&report)?;
@@ -143,4 +180,3 @@ impl Default for ResultAggregator {
         Self::new()
     }
 }
-
